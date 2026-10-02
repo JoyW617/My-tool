@@ -1,0 +1,560 @@
+html
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>貼文產生器</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #dfe3ea;
+    --primary: #4f6df5;
+    --primary-text: #ffffff;
+    --ok: #16a34a;
+    --err: #dc2626;
+    --shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141a;
+      --card: #1b1e27;
+      --text: #e8eaf0;
+      --muted: #9aa3b2;
+      --border: #2d3240;
+      --primary: #6f87ff;
+      --primary-text: #0b0d14;
+      --ok: #4ade80;
+      --err: #f87171;
+      --shadow: 0 2px 10px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .full { grid-column: 1 / -1; }
+  input[type="text"], select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    outline: none;
+  }
+  input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); }
+  .checks { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+  .checks label { display: flex; align-items: center; gap: 6px; font-weight: 500; margin: 0; cursor: pointer; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--primary); }
+  button.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); font-weight: 600; }
+  button.small { padding: 6px 12px; font-size: 13px; }
+  #msg { font-size: 14px; min-height: 20px; }
+  #msg.err { color: var(--err); }
+  #msg.ok { color: var(--ok); }
+  .result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+  .result-title { font-weight: 700; }
+  .count { font-size: 13px; color: var(--muted); }
+  .count.over { color: var(--err); font-weight: 600; }
+  .result textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✍️ 貼文產生器</h1>
+  <p class="sub">輸入主題與關鍵字，一鍵產生多則可直接使用的社群貼文。</p>
+
+  <div class="card">
+    <div class="grid">
+      <div class="full">
+        <label for="topic">貼文主題 *</label>
+        <input type="text" id="topic" placeholder="例如：新開幕的手沖咖啡店、週末市集活動、新品上市">
+      </div>
+      <div class="full">
+        <label for="keywords">關鍵字（用逗號、頓號或空白分隔，可留空）</label>
+        <input type="text" id="keywords" placeholder="例如：手工烘焙, 限量, 開幕優惠">
+      </div>
+      <div>
+        <label for="platform">發文平台</label>
+        <select id="platform">
+          <option value="facebook">Facebook</option>
+          <option value="instagram">Instagram</option>
+          <option value="threads">Threads</option>
+          <option value="x">X (Twitter)</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="line">LINE 官方帳號</option>
+        </select>
+      </div>
+      <div>
+        <label for="tone">語氣風格</label>
+        <select id="tone">
+          <option value="friendly">親切好友</option>
+          <option value="pro">專業可信</option>
+          <option value="funny">幽默風趣</option>
+          <option value="inspire">熱血激勵</option>
+          <option value="promo">促銷吸睛</option>
+          <option value="warm">溫暖感性</option>
+        </select>
+      </div>
+      <div>
+        <label for="length">貼文長度</label>
+        <select id="length">
+          <option value="short">短（1～2 句）</option>
+          <option value="medium" selected>中（適合多數平台）</option>
+          <option value="long">長（完整介紹）</option>
+        </select>
+      </div>
+      <div>
+        <label for="cta">行動呼籲</label>
+        <select id="cta">
+          <option value="none">不加</option>
+          <option value="comment" selected>邀請留言</option>
+          <option value="share">邀請分享</option>
+          <option value="follow">邀請追蹤</option>
+          <option value="link">點擊連結</option>
+          <option value="dm">私訊詢問</option>
+        </select>
+      </div>
+      <div>
+        <label for="count">產生數量</label>
+        <select id="count">
+          <option value="1">1 則</option>
+          <option value="3" selected>3 則</option>
+          <option value="5">5 則</option>
+        </select>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" id="emoji" checked> 加入表情符號</label>
+        <label><input type="checkbox" id="hashtag" checked> 加入 Hashtag</label>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnGen" type="button">✨ 產生貼文</button>
+      <button id="btnClear" type="button">清除</button>
+      <span id="msg" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div id="toolbar" class="toolbar" style="display:none;">
+    <strong>產生結果（可直接在框內修改）</strong>
+    <button class="small" id="btnCopyAll" type="button">複製全部</button>
+  </div>
+  <div id="results">
+    <div class="card empty">填寫上方資料後，點「產生貼文」開始吧！</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- 語氣素材庫 ----------
+  var TONES = {
+    friendly: {
+      emo: ['😊', '🙌', '✨', '💛', '🎉'],
+      open: [
+        '嗨大家～今天想跟你們聊聊「{topic}」！',
+        '最近超常被問到「{topic}」，今天一次跟你們分享～',
+        '各位朋友看過來！「{topic}」來囉！',
+        '跟你說一個小秘密，關於「{topic}」……',
+        '今天的主角是「{topic}」，一起來看看吧！'
+      ],
+      points: [
+        '我們特別在意「{kw}」，希望每個人都能感受到用心。',
+        '「{kw}」是我們最想讓你知道的重點之一！',
+        '用過的朋友都說「{kw}」真的很加分。',
+        '不管你是第一次接觸還是老朋友，都會喜歡這份「{kw}」。',
+        '把「{kw}」放進日常，生活真的會不一樣。',
+        '我們把「{kw}」做到最好，就是想讓你滿意。'
+      ],
+      close: [
+        '期待你的光臨與回饋，我們一起讓它更好！',
+        '有任何想法都歡迎跟我們說，我們都在！',
+        '謝謝你願意花時間看到這裡，愛你們！'
+      ]
+    },
+    pro: {
+      emo: ['📌', '✅', '📊', '🔎'],
+      open: [
+        '關於「{topic}」，以下是我們整理的重點。',
+        '「{topic}」近期備受關注，我們從實務角度提供觀點。',
+        '想了解「{topic}」？先掌握這幾個關鍵。',
+        '【重點整理】{topic}',
+        '針對「{topic}」，我們有以下分享。'
+      ],
+      points: [
+        '核心關鍵在於「{kw}」，這會直接影響最終成果。',
+        '實務經驗顯示，重視「{kw}」能有效提升整體品質。',
+        '我們建議優先評估「{kw}」，再進行後續規劃。',
+        '透過系統化的方式處理「{kw}」，可大幅降低風險。',
+        '數據與案例都指出，「{kw}」是不可忽略的一環。',
+        '長期來看，持續優化「{kw}」將帶來穩定回報。'
+      ],
+      close: [
+        '若您有相關需求，歡迎與我們進一步討論。',
+        '更多細節與案例，歡迎持續關注我們的後續內容。',
+        '專業的事，交給專業的團隊。'
+      ]
+    },
+    funny: {
+      emo: ['🤣', '😂', '🤪', '🙈', '🔥'],
+      open: [
+        '警告⚠️ 看完「{topic}」你可能會忍不住想分享！',
+        '我本來想正經介紹「{topic}」，但是我忍不住了哈哈哈',
+        '「{topic}」來了！錢包請自行保護好👀',
+        '朋友問我為什麼最近心情特別好？答案就是「{topic}」！',
+        '誰懂啊！「{topic}」真的太犯規了！'
+      ],
+      points: [
+        '「{kw}」這件事，我們是認真的（但表情是笑著的）。',
+        '說真的，「{kw}」讓我們整個團隊都快樂到不行。',
+        '如果「{kw}」是一種超能力，我們大概已經拯救世界了。',
+        '用了「{kw}」之後，連我媽都說我變靠譜了。',
+        '別問，問就是「{kw}」太強，強到我們自己都驚訝。',
+        '「{kw}」就是那個你知道了就回不去的存在。'
+      ],
+      close: [
+        '好啦不鬧了，總之快來看看就對了！',
+        '不來看一下，我怕你之後會後悔到睡不著😆',
+        '笑完記得留言，讓我知道你有看到！'
+      ]
+    },
+    inspire: {
+      emo: ['🔥', '💪', '🚀', '🌟'],
+      open: [
+        '別再等了！「{topic}」就是你該開始的理由！',
+        '每一個偉大的開始，都從「{topic}」這一步出發。',
+        '你比自己想像的更強，現在就從「{topic}」開始！',
+        '改變，從今天、從「{topic}」開始！',
+        '想做就去做！「{topic}」，我們一起衝！'
+      ],
+      points: [
+        '堅持「{kw}」，你會看到不一樣的自己。',
+        '「{kw}」不是終點，而是你起飛的跑道。',
+        '每一次投入「{kw}」，都是在為未來加分。',
+        '別怕失敗，把「{kw}」當成你的最強武器。',
+        '當你開始相信「{kw}」，奇蹟就會發生。',
+        '只要願意開始，「{kw}」就會回報你的努力。'
+      ],
+      close: [
+        '今天的你，就是最好的起點！',
+        '行動吧！未來的你會感謝現在的決定。',
+        '一起加油，我們都不孤單！'
+      ]
+    },
+    promo: {
+      emo: ['🔥', '🎁', '💥', '🛒', '⏰'],
+      open: [
+        '【限時優惠】「{topic}」現在入手最划算！',
+        '來了來了！「{topic}」大放送，錯過再等一年！',
+        '🔔 「{topic}」開跑！名額有限，手刀搶！',
+        '想要「{topic}」的看這裡，超值方案登場！',
+        '重磅登場！「{topic}」，今天不買明天漲價！'
+      ],
+      points: [
+        '主打「{kw}」，CP 值直接拉滿！',
+        '「{kw}」只在這個檔期提供，數量有限售完為止。',
+        '買到賺到！「{kw}」讓你一次擁有超值組合。',
+        '現在加入就享「{kw}」專屬好禮。',
+        '口碑推薦「{kw}」，回購率超高！',
+        '「{kw}」限定優惠，早鳥先享！'
+      ],
+      close: [
+        '活動期間有限，動作快的人才搶得到！',
+        '想要的朋友千萬別猶豫，晚了可能就沒了！',
+        '標記你的好朋友，一起搶優惠最划算！'
+      ]
+    },
+    warm: {
+      emo: ['🌿', '☕', '💗', '🌙', '🍀'],
+      open: [
+        '有時候，生活需要一點慢下來的時刻，就像「{topic}」。',
+        '在忙碌的日子裡，「{topic}」帶給我們一份小小的溫柔。',
+        '想和你分享關於「{topic}」的一段心情。',
+        '每一個平凡的日子，因為「{topic}」而變得特別。',
+        '謝謝你一路陪伴，也想讓你認識「{topic}」。'
+      ],
+      points: [
+        '我們珍惜「{kw}」，因為它讓人感到被好好對待。',
+        '「{kw}」像一束光，悄悄溫暖了日常。',
+        '願每個人都能在「{kw}」裡，找到屬於自己的安心。',
+        '慢慢來，「{kw}」會在對的時間陪著你。',
+        '那些細膩的「{kw}」，是我們想傳遞的心意。',
+        '因為有「{kw}」，平凡的一天也有了溫度。'
+      ],
+      close: [
+        '願你今天也被溫柔以待。',
+        '謝謝你看到這裡，祝你有個美好的一天。',
+        '如果你也有同感，歡迎和我們說說你的故事。'
+      ]
+    }
+  };
+
+  var CTAS = {
+    none: [],
+    comment: ['你怎麼看？歡迎在留言區跟我們分享！', '留言告訴我們你的想法吧！', '想聽聽你的意見，留言見！'],
+    share: ['覺得有幫助的話，歡迎分享給需要的朋友！', '分享給你身邊的人，一起看看吧！'],
+    follow: ['追蹤我們，不錯過任何更新！', '按下追蹤，第一時間收到最新消息！'],
+    link: ['詳情請點擊連結了解更多 👉', '更多資訊請見連結，立即前往！'],
+    dm: ['有任何問題歡迎私訊我們！', '想了解更多？私訊即可詢問～']
+  };
+
+  var PLATFORM = {
+    facebook:  { name: 'Facebook',  limit: 63206, tags: 3 },
+    instagram: { name: 'Instagram', limit: 2200,  tags: 8 },
+    threads:   { name: 'Threads',   limit: 500,   tags: 2 },
+    x:         { name: 'X',         limit: 280,   tags: 2 },
+    linkedin:  { name: 'LinkedIn',  limit: 3000,  tags: 4 },
+    line:      { name: 'LINE',      limit: 500,   tags: 0 }
+  };
+
+  // ---------- 工具函式 ----------
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function parseKeywords(s) {
+    return s.split(/[,，、;；\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  function makeTag(word) {
+    return '#' + word.replace(/[\s#]+/g, '');
+  }
+
+  var msgTimer = null;
+  function showMsg(text, type) {
+    var el = $('msg');
+    el.textContent = text;
+    el.className = type || '';
+    clearTimeout(msgTimer);
+    if (text) {
+      msgTimer = setTimeout(function () { el.textContent = ''; el.className = ''; }, 2500);
+    }
+  }
+
+  // ---------- 產生邏輯 ----------
+  function buildPost(opt) {
+    var T = TONES[opt.tone];
+    var P = PLATFORM[opt.platform];
+    var emo = function () { return pick(T.emo); };
+    var fill = function (tpl) {
+      return tpl.replace(/\{topic\}/g, opt.topic).replace(/\{kw\}/g, function () {
+        return opt.kws.length ? pick(opt.kws) : opt.topic;
+      });
+    };
+
+    var n = { short: 1, medium: 2, long: 4 }[opt.length];
+    var parts = [];
+
+    var first = fill(pick(T.open));
+    if (opt.emoji) first = emo() + ' ' + first;
+    parts.push(first);
+
+    shuffle(T.points).slice(0, n).forEach(function (p) {
+      var line = fill(p);
+      if (opt.emoji && opt.length === 'long') line = emo() + ' ' + line;
+      parts.push(line);
+    });
+
+    if (opt.length !== 'short') {
+      var closing = fill(pick(T.close));
+      if (opt.emoji) closing += ' ' + emo();
+      parts.push(closing);
+    }
+
+    if (opt.cta !== 'none') {
+      parts.push(pick(CTAS[opt.cta]));
+    }
+
+    var sep = opt.length === 'short' ? '\n' : '\n\n';
+    var text = parts.join(sep);
+
+    if (opt.hashtag && P.tags > 0) {
+      var pool = opt.kws.map(makeTag);
+      pool.unshift(makeTag(opt.topic));
+      var seen = {};
+      var tags = [];
+      pool.forEach(function (t) {
+        if (t.length > 1 && !seen[t]) { seen[t] = 1; tags.push(t); }
+      });
+      tags = tags.slice(0, P.tags);
+      if (tags.length) text += '\n\n' + tags.join(' ');
+    }
+    return text;
+  }
+
+  // ---------- 複製 ----------
+  function copyText(text, okMsg) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      showMsg(ok ? okMsg : '複製失敗，請手動選取文字複製', ok ? 'ok' : 'err');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        showMsg(okMsg, 'ok');
+      }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // ---------- 畫面 ----------
+  function updateCount(textarea, countEl, limit) {
+    var len = textarea.value.length;
+    countEl.textContent = len + ' / ' + limit + ' 字';
+    countEl.className = 'count' + (len > limit ? ' over' : '');
+  }
+
+  function render(posts, platformKey) {
+    var box = $('results');
+    box.innerHTML = '';
+    var P = PLATFORM[platformKey];
+
+    posts.forEach(function (text, i) {
+      var card = document.createElement('div');
+      card.className = 'card result';
+
+      var head = document.createElement('div');
+      head.className = 'result-head';
+
+      var title = document.createElement('span');
+      title.className = 'result-title';
+      title.textContent = '版本 ' + (i + 1) + '・' + P.name;
+
+      var right = document.createElement('span');
+      var cnt = document.createElement('span');
+      cnt.className = 'count';
+      cnt.style.marginRight = '10px';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'small';
+      btn.textContent = '複製';
+
+      right.appendChild(cnt);
+      right.appendChild(btn);
+      head.appendChild(title);
+      head.appendChild(right);
+
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('data-post', '1');
+      ta.addEventListener('input', function () { updateCount(ta, cnt, P.limit); });
+      btn.addEventListener('click', function () {
+        copyText(ta.value, '已複製版本 ' + (i + 1));
+      });
+
+      card.appendChild(head);
+      card.appendChild(ta);
+      box.appendChild(card);
+      updateCount(ta, cnt, P.limit);
+    });
+
+    $('toolbar').style.display = 'flex';
+  }
+
+  function generate() {
+    var topic = $('topic').value.trim();
+    if (!topic) {
+      showMsg('請先輸入貼文主題', 'err');
+      $('topic').focus();
+      return;
+    }
+    var opt = {
+      topic: topic,
+      kws: parseKeywords($('keywords').value),
+      platform: $('platform').value,
+      tone: $('tone').value,
+      length: $('length').value,
+      cta: $('cta').value,
+      emoji: $('emoji').checked,
+      hashtag: $('hashtag').checked
+    };
+    var count = parseInt($('count').value, 10);
+    var posts = [];
+    var guard = 0;
+    while (posts.length < count && guard < 60) {
+      var p = buildPost(opt);
+      if (posts.indexOf(p) === -1) posts.push(p);
+      guard++;
+    }
+    render(posts, opt.platform);
+    showMsg('已產生 ' + posts.length + ' 則貼文', 'ok');
+  }
+
+  function clearAll() {
+    $('topic').value = '';
+    $('keywords').value = '';
+    $('results').innerHTML = '<div class="card empty">填寫上方資料後，點「產生貼文」開始吧！</div>';
+    $('toolbar').style.display = 'none';
+    showMsg('已清除', 'ok');
+    $('topic').focus();
+  }
+
+  function copyAll() {
+    var list = document.querySelectorAll('textarea[data-post]');
+    if (!list.length) { showMsg('目前沒有可複製的內容', 'err'); return; }
+    var all = Array.prototype.map.call(list, function (t, i) {
+      return '【版本 ' + (i + 1) + '】\n' + t.value;
+    }).join('\n\n--------------------\n\n');
+    copyText(all, '已複製全部版本');
+  }
+
+  $('btnGen').addEventListener('click', generate);
+  $('btnClear').addEventListener('click', clearAll);
+  $('btnCopyAll').addEventListener('click', copyAll);
+  $('topic').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') generate();
+  });
+})();
+</script>
+</body>
+</html>
